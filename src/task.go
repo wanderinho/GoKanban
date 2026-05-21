@@ -4,14 +4,13 @@ import (
 	"time"
 )
 
-
-//структура таски
+// структура таски
 type Task struct {
-	ID int
-	title       string
-	description string
-	createdAt time.Time
-	columnID int
+	ID          int
+	Title       string
+	Description string
+	CreatedAt   time.Time
+	ColumnID    int
 }
 
 //метод обновления имени задачи
@@ -20,14 +19,8 @@ type Task struct {
 	она будет реализована после подключения бд в проект
 } */
 
-//метод обновления описания задачи
+// метод обновления описания задачи
 func (t *Task) UpdateTaskDescription(description string) *Task {
-	t.description = description
+	t.Description = description
 	return t
 }
-
-
-
-
-
-

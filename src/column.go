@@ -1,83 +1,83 @@
 package src
 
 import (
-	"time"
 	"errors"
+	"time"
 )
 
-//структура колонки
+// структура колонки
 type Column struct {
 	ID      int
-	title   string
-	tasks   map[int]*Task
-	boardID int
+	Title   string
+	Tasks   map[int]*Task
+	BoardID int
 }
 
-//метод создания и добавления новой задачи в колонку
+// метод создания и добавления новой задачи в колонку
 func (c *Column) AddTask(title, description string) (*Task, error) {
 	if err := c.validateTaskTitle(title); err != nil {
 		return nil, err
 	}
-	
-	if len(c.tasks) > 0 {
+
+	if len(c.Tasks) > 0 {
 		taskPointer := &Task{
-			ID: c.getLastTaskID() + 1, 
-			title: title,
-			description: description,
-			createdAt: time.Now(),
-			columnID: c.ID,
+			ID:          c.getLastTaskID() + 1,
+			Title:       title,
+			Description: description,
+			CreatedAt:   time.Now(),
+			ColumnID:    c.ID,
 		}
-		c.tasks[taskPointer.ID] = taskPointer
+		c.Tasks[taskPointer.ID] = taskPointer
 		return taskPointer, nil
 	} else {
 		taskPointer := &Task{
-			ID: 0, 
-			title: title,
-			description: description,
-			createdAt: time.Now(),
-			columnID: c.ID,
+			ID:          0,
+			Title:       title,
+			Description: description,
+			CreatedAt:   time.Now(),
+			ColumnID:    c.ID,
 		}
-		c.tasks[taskPointer.ID] = taskPointer
+		c.Tasks[taskPointer.ID] = taskPointer
 		return taskPointer, nil
 	}
 }
 
-//метод получения задачи
+// метод получения задачи
 func (c *Column) GetTask(taskID int) (*Task, error) {
-	if _, ok := c.tasks[taskID]; !ok {
+	if _, ok := c.Tasks[taskID]; !ok {
 		err := errors.New("такой задачи не существует")
-      	return nil, err
-    }
-    return c.tasks[taskID], nil
+		return nil, err
+	}
+	return c.Tasks[taskID], nil
 }
 
-//метод удаления задачи
+// метод удаления задачи
 func (c *Column) RemoveTask(taskID int) error {
-	if _, ok := c.tasks[taskID]; !ok {
-      	return errors.New("такой задачи не существует")
-    }
-    delete(c.tasks, taskID)
-    return nil
+	if _, ok := c.Tasks[taskID]; !ok {
+		return errors.New("такой задачи не существует")
+	}
+	delete(c.Tasks, taskID)
+	return nil
 }
 
-//метод обновления имени задачи
+// метод обновления имени задачи
 func (c *Column) UpdateColumnTitle(title string) (*Column, error) {
-	if err := boardMap[c.boardID].validateColumnTitle(title); err != nil {
+	if err := BoardMap[c.BoardID].validateColumnTitle(title); err != nil {
 		return nil, err
 	}
 
-	c.title = title
+	c.Title = title
 	return c, nil
 }
 
-//валидация имени задачи
+// валидация имени задачи
 func (c Column) validateTaskTitle(title string) error {
-	for _, v := range c.tasks {
-		if v.title == title {
+	for _, v := range c.Tasks {
+		if v.Title == title {
 			return errors.New("задача с таким именем уже есть в колонке")
 		}
 	}
-	
+
 	if len(title) < 1 {
 		return errors.New("имя задачи не может быть пустым")
 	} else {
@@ -85,17 +85,13 @@ func (c Column) validateTaskTitle(title string) error {
 	}
 }
 
-//получение последнего (наибольшего) id среди задач
+// получение последнего (наибольшего) id среди задач
 func (c Column) getLastTaskID() int {
 	id := 0
-	for k, _ := range c.tasks {
+	for k, _ := range c.Tasks {
 		if k > id {
 			id = k
 		}
 	}
 	return id
 }
-
-
-
-

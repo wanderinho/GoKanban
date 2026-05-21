@@ -7,146 +7,150 @@ import (
 // структура доски
 type Board struct {
 	ID      int
-	title   string
-	columns map[int]*Column
+	Title   string
+	Columns map[int]*Column
 }
 
 // хранилище досок для удобства
-var boardMap map[int]*Board = make(map[int]*Board)
+var BoardMap map[int]*Board = make(map[int]*Board)
 
-//метод создания новой дсоки
-func NewBoard(title string) *Board {
+// метод создания новой дсоки
+func NewBoard(title string) (*Board, error) {
+	if err := validateBoardTitle(title); err != nil {
+		return nil, err
+	}
+
 	//если в хранилище есть доски
-	if len(boardMap) > 0 {
+	if len(BoardMap) > 0 {
 		boardPointer := &Board{
 			ID:      getLastBoardID() + 1,
-			title:   title,
-			columns: make(map[int]*Column),
+			Title:   title,
+			Columns: make(map[int]*Column),
 		}
 		//добавляем доску в хранилище по ее же id
-		boardMap[boardPointer.ID] = boardPointer
-		return boardPointer
+		BoardMap[boardPointer.ID] = boardPointer
+		return boardPointer, nil
 	} else {
 		//если хранилище пустое, у первой доски id = 0
 		boardPointer := &Board{
 			ID:      0,
-			title:   title,
-			columns: make(map[int]*Column),
+			Title:   title,
+			Columns: make(map[int]*Column),
 		}
 		//добавляем доску в хранилище по ее же id
-		boardMap[boardPointer.ID] = boardPointer
-		return boardPointer
+		BoardMap[boardPointer.ID] = boardPointer
+		return boardPointer, nil
 	}
 }
 
-//метод создания и добавления новой колонки в доску
+// метод создания и добавления новой колонки в доску
 func (b *Board) AddColumn(title string) (*Column, error) {
 	if err := b.validateColumnTitle(title); err != nil {
 		return nil, err
 	}
 
-	if len(b.columns) > 0 {
+	if len(b.Columns) > 0 {
 		columnPointer := &Column{
 			ID:      b.getLastColumnID() + 1,
-			title:   title,
-			tasks:   make(map[int]*Task),
-			boardID: b.ID,
+			Title:   title,
+			Tasks:   make(map[int]*Task),
+			BoardID: b.ID,
 		}
-		b.columns[columnPointer.ID] = columnPointer
+		b.Columns[columnPointer.ID] = columnPointer
 		return columnPointer, nil
 	} else {
 		columnPointer := &Column{
 			ID:      0,
-			title:   title,
-			tasks:   make(map[int]*Task),
-			boardID: b.ID,
+			Title:   title,
+			Tasks:   make(map[int]*Task),
+			BoardID: b.ID,
 		}
-		b.columns[columnPointer.ID] = columnPointer
+		b.Columns[columnPointer.ID] = columnPointer
 		return columnPointer, nil
 	}
 }
 
-//метод получения доски
+// метод получения доски
 func GetBoard(boardID int) (*Board, error) {
-	if _, ok := boardMap[boardID]; !ok {
+	if _, ok := BoardMap[boardID]; !ok {
 		err := errors.New("такой доски не существует")
-      	return nil, err
+		return nil, err
 	}
-	return boardMap[boardID], nil
+	return BoardMap[boardID], nil
 }
 
-//метод обновления имени доски
+// метод обновления имени доски
 func (b *Board) UpdateBoardTitle(title string) (*Board, error) {
 	if err := validateBoardTitle(title); err != nil {
 		return nil, err
 	}
 
-	b.title = title
+	b.Title = title
 	return b, nil
 }
 
-//метод удаления доски
+// метод удаления доски
 func (b *Board) RemoveBoard() error {
-	if _, ok := boardMap[b.ID]; !ok {
+	if _, ok := BoardMap[b.ID]; !ok {
 		return errors.New("такой доски не существует")
 	}
-	delete(boardMap, b.ID)
+	delete(BoardMap, b.ID)
 	return nil
 }
 
-//метод получения колонки
+// метод получения колонки
 func (b *Board) GetColumn(columnID int) (*Column, error) {
-	if _, ok := b.columns[columnID]; !ok {
+	if _, ok := b.Columns[columnID]; !ok {
 		err := errors.New("такой колонки не существует")
 		return nil, err
 	}
-	return b.columns[columnID], nil
+	return b.Columns[columnID], nil
 }
 
-//метод удаления колонки
+// метод удаления колонки
 func (b *Board) RemoveColumn(columnID int) error {
-	if _, ok := b.columns[columnID]; !ok {
+	if _, ok := b.Columns[columnID]; !ok {
 		return errors.New("такой колонки не существует")
 	}
-	delete(b.columns, columnID)
+	delete(b.Columns, columnID)
 	return nil
 }
 
-//метод перемещения задачи из колонки в колонку
+// метод перемещения задачи из колонки в колонку
 func (b *Board) MoveTask(taskID, fromColumnID, toColumnID int) error {
 	if err := b.validateBelongBoard(fromColumnID, toColumnID); err != nil {
 		return errors.New("передана неверная колонка")
 	}
 
-	necessaryTask, ok := b.columns[fromColumnID].tasks[taskID]
+	necessaryTask, ok := b.Columns[fromColumnID].Tasks[taskID]
 	if !ok {
 		return errors.New("задача не найдена")
 	}
-	b.columns[fromColumnID].RemoveTask(taskID)
-	lastTaskId := b.columns[toColumnID].getLastTaskID()
+	b.Columns[fromColumnID].RemoveTask(taskID)
+	lastTaskId := b.Columns[toColumnID].getLastTaskID()
 	necessaryTask.ID = lastTaskId + 1
-	necessaryTask.columnID = toColumnID
-	b.columns[toColumnID].tasks[lastTaskId + 1] = necessaryTask
+	necessaryTask.ColumnID = toColumnID
+	b.Columns[toColumnID].Tasks[lastTaskId+1] = necessaryTask
 	return nil
 }
 
-//принадлежат ли переданные колонки кокретной доске
+// принадлежат ли переданные колонки кокретной доске
 func (b Board) validateBelongBoard(fromColumnID, toColumnID int) error {
-	if _, ok := b.columns[fromColumnID]; !ok {
+	if _, ok := b.Columns[fromColumnID]; !ok {
 		return errors.New("колонка не принадлежит этой доске")
 	}
 
-	if _, ok := b.columns[toColumnID]; !ok {
+	if _, ok := b.Columns[toColumnID]; !ok {
 		return errors.New("колонка не принадлежит этой доске")
 	}
 
 	return nil
 }
 
-//валидация имени доски
+// валидация имени доски
 func validateBoardTitle(title string) error {
-	for _, v := range boardMap {
-		if v.title == title {
+	for _, v := range BoardMap {
+		if v.Title == title {
 			return errors.New("доска с таким именем уже существует")
 		}
 	}
@@ -158,10 +162,10 @@ func validateBoardTitle(title string) error {
 	}
 }
 
-//валидация имени колонки
+// валидация имени колонки
 func (b Board) validateColumnTitle(title string) error {
-	for _, v := range b.columns {
-		if v.title == title {
+	for _, v := range b.Columns {
+		if v.Title == title {
 			return errors.New("колонка с таким именем уже есть в доске")
 		}
 	}
@@ -176,7 +180,7 @@ func (b Board) validateColumnTitle(title string) error {
 // получение (наибольшего) id среди колонок
 func (b Board) getLastColumnID() int {
 	id := 0
-	for k, _ := range b.columns {
+	for k, _ := range b.Columns {
 		if k > id {
 			id = k
 		}
@@ -187,7 +191,7 @@ func (b Board) getLastColumnID() int {
 // получение последнего (наибольшего) id среди досок
 func getLastBoardID() int {
 	id := 0
-	for k, _ := range boardMap {
+	for k, _ := range BoardMap {
 		if k > id {
 			id = k
 		}
