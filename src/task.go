@@ -6,11 +6,11 @@ import (
 
 // структура таски
 type Task struct {
-	ID          int
-	Title       string
-	Description string
-	CreatedAt   time.Time
-	ColumnID    int
+	ID          int       `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	ColumnID    int       `json:"column_id"`
 }
 
 //метод обновления имени задачи

@@ -1,6 +1,8 @@
 package dto
 
-import "kanban/src"
+import (
+	"kanban/src"
+)
 
 type CreateBoardDTO struct {
 	Title string `json:"title"`
@@ -18,7 +20,7 @@ type CreateColumnDTO struct {
 type CreateColumnResponseDTO struct {
 	ID      int    `json:"id"`
 	Title   string `json:"title"`
-	BoardID int    `json:"boardID"`
+	BoardID int    `json:"board_id"`
 }
 
 type GetBoardResponseDTO struct {
@@ -41,7 +43,7 @@ type GetColumnResponseDTO struct {
 	ID      int        `json:"id"`
 	Title   string     `json:"title"`
 	Tasks   []src.Task `json:"tasks"`
-	BoardID int        `json:"boardID"`
+	BoardID int        `json:"board_id"`
 }
 
 type MoveTaskDTO struct {
@@ -51,8 +53,28 @@ type MoveTaskDTO struct {
 }
 
 type MoveTaskResponseDTO struct {
-	BoardID int          `json:"boardID"`
+	BoardID int          `json:"board_id"`
 	Columns []src.Column `json:"columns"`
+}
+
+type CreateTaskDTO struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type UpdateColumnTitleDTO struct {
+	Title string `json:"title"`
+}
+
+type UpdateColumnTitleResponseDTO struct {
+	ID      int        `json:"id"`
+	Title   string     `json:"title"`
+	Tasks   []src.Task `json:"tasks"`
+	BoardID int        `json:"board_id"`
+}
+
+type UpdateTaskDescriptionDTO struct {
+	Description string `json:"description"`
 }
 
 type ErrorDTO struct {

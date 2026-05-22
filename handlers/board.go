@@ -115,6 +115,7 @@ func DeleteBoard(w http.ResponseWriter, r *http.Request) {
 
 	if err := necessaryBoard.RemoveBoard(); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
+		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -145,6 +146,7 @@ func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 	board, err := necessaryBoard.UpdateBoardTitle(req.Title)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	res.ID = board.ID
