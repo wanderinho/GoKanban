@@ -13,12 +13,6 @@ type Task struct {
 	ColumnID    int       `json:"column_id"`
 }
 
-//метод обновления имени задачи
-/*func (t *Task) UpdateTaskTitle(title string) (*Task, error) {
-	без ссылки на родителя невозможно реализовать валидацию заголовка
-	она будет реализована после подключения бд в проект
-} */
-
 // метод обновления описания задачи
 func (t *Task) UpdateTaskDescription(description string) *Task {
 	t.Description = description

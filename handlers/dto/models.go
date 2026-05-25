@@ -33,6 +33,10 @@ type UpdateBoardTitleDTO struct {
 	Title string `json:"title"`
 }
 
+type UpdateTaskTitleDTO struct {
+	Title string `json:"title"`
+}
+
 type UpdateBoardTitleResponseDTO struct {
 	ID      int          `json:"id"`
 	Title   string       `json:"title"`

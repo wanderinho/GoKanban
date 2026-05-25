@@ -8,8 +8,18 @@ import (
 
 type Storage struct {
 	Boards map[int]*Board
+	Columns map[int]*Column
 	Tasks map[int]*Task
 }
+
+func NewStorage() *Storage {
+	return &Storage{
+		Boards: make(map[int]*Board),
+		Columns: make(map[int]*Column),
+		Tasks: make(map[int]*Task),
+	}
+}
+
 
 // метод создания новой дсоки
 func (s *Storage) NewBoard(title string) (*Board, error) {
@@ -17,27 +27,20 @@ func (s *Storage) NewBoard(title string) (*Board, error) {
 		return nil, err
 	}
 
-	//если в хранилище есть доски
+
+	var id int
 	if len(s.Boards) > 0 {
-		boardPointer := &Board{
-			ID:      s.getLastBoardID() + 1,
-			Title:   title,
-			Columns: make(map[int]*Column),
-		}
-		//добавляем доску в хранилище по ее же id
-		s.Boards[boardPointer.ID] = boardPointer
-		return boardPointer, nil
+		id = s.getLastBoardID() + 1
 	} else {
-		//если хранилище пустое, у первой доски id = 0
-		boardPointer := &Board{
-			ID:      0,
-			Title:   title,
-			Columns: make(map[int]*Column),
-		}
-		//добавляем доску в хранилище по ее же id
-		s.Boards[boardPointer.ID] = boardPointer
-		return boardPointer, nil
+		id = 0
 	}
+	boardPointer := &Board{
+			ID:      id,
+			Title:   title,
+			Columns: make(map[int]struct{}),
+	}
+	s.Boards[id] = boardPointer
+	return boardPointer, nil
 }
 
 // метод получения доски
@@ -69,6 +72,16 @@ func (s *Storage) RemoveBoard(boardID int) error {
 	if _, ok := s.Boards[boardID]; !ok {
 		return errors.New("такой доски не существует")
 	}
+
+	board := s.Boards[boardID]
+	for colID := range board.Columns {
+		delete(s.Columns, colID)
+		if col, ok := s.Columns[colID]; ok {
+			for taskID := range col.Tasks {
+				delete(s.Tasks, taskID)
+			}
+		}
+	}
 	delete(s.Boards, boardID)
 	return nil
 }
@@ -79,29 +92,69 @@ func (s *Storage) AddColumn(boardID int, title string) (*Column, error) {
 		return nil, errors.New("такой доски не существует")
 	}
 	
-	if err := board.validateColumnTitle(title, -1); err != nil {
+	if err := s.validateColumnTitle(board, title, -1); err != nil {
 		return nil, err
 	}
 
-	if len(board.Columns) > 0 {
-		columnPointer := &Column{
-			ID:      board.getLastColumnID() + 1,
-			Title:   title,
-			Tasks:   make(map[int]struct{}),
-			BoardID: board.ID,
-		}
-		board.Columns[columnPointer.ID] = columnPointer
-		return columnPointer, nil
+	var colID int
+	if len(s.Columns) > 0 {
+		colID = s.getLastColumnID() + 1
 	} else {
-		columnPointer := &Column{
-			ID:      0,
-			Title:   title,
-			Tasks:   make(map[int]struct{}),
-			BoardID: board.ID,
-		}
-		board.Columns[columnPointer.ID] = columnPointer
-		return columnPointer, nil
+		colID = 0
 	}
+	column := &Column{
+		ID:      colID,
+		Title:   title,
+		Tasks:   make(map[int]struct{}),
+		BoardID: board.ID,
+	}
+	board.Columns[colID] = struct{}{}
+	s.Columns[colID] = column
+	return column, nil
+}
+
+// метод получения колонки
+func (s *Storage) GetColumn(boardID, columnID int) (*Column, error) {
+	board, ok := s.Boards[boardID]
+	if !ok {
+		return nil, errors.New("такой доски не существует")
+	}
+
+	if _, ok := s.Columns[columnID]; !ok {
+		return nil, errors.New("такой колонки не существует во глобальном хранилище")
+	}
+
+	_, ok = board.Columns[columnID]
+	if !ok {
+		return nil, errors.New("такой колонки не существует в доске")
+	}
+	
+	return s.Columns[columnID], nil
+}
+
+// метод удаления колонки
+func (s *Storage) RemoveColumn(boardID, columnID int) error {
+    board, ok := s.Boards[boardID]
+    if !ok {
+        return errors.New("такой доски не существует")
+    }
+
+    if _, ok := board.Columns[columnID]; !ok {
+        return errors.New("такой колонки не существует в доске")
+    }
+
+    column, ok := s.Columns[columnID]
+    if !ok {
+        return errors.New("такой колонки не существует в глобальном хранилище")
+    }
+
+    for taskID := range column.Tasks {
+        delete(s.Tasks, taskID)
+    }
+
+    delete(s.Columns, columnID)
+    delete(board.Columns, columnID)
+    return nil
 }
 
 // метод обновления имени колонки
@@ -111,12 +164,16 @@ func (s *Storage) UpdateColumnTitle(boardID, columnID int, title string) (*Colum
 		return nil, errors.New("такой доски не существует")
 	}
 
-	column, ok := board.Columns[columnID]
+	if _, ok = board.Columns[columnID]; !ok {
+		return nil, errors.New("такой колонки не существует в доске")
+	}
+
+	column, ok := s.Columns[columnID]
 	if !ok {
-		return nil, errors.New("такой колонки не существует")
+		return nil, errors.New("такой колонки не существует во глобальном хранилище")
 	}
 	
-	if err := board.validateColumnTitle(title, columnID); err != nil {
+	if err := s.validateColumnTitle(board, title, columnID); err != nil {
 		return nil, err
 	}
 
@@ -131,38 +188,35 @@ func (s *Storage) AddTask(boardID, columnID int, title, description string) (*Ta
 		return nil, errors.New("такой доски не существует")
 	}
 
-	column, ok := board.Columns[columnID]
+	if _, ok = board.Columns[columnID]; !ok {
+		return nil, errors.New("такой колонки не существует в доске")
+	}
+
+	column, ok := s.Columns[columnID]
 	if !ok {
-		return nil, errors.New("такой колонки не существует")
+		return nil, errors.New("такой колонки не существует во глобальном хранилище")
 	}
 	
 	if err := s.validateTaskTitle(column, title); err != nil {
 		return nil, err
 	}
 
+	var taskID int
 	if len(s.Tasks) > 0 {
-		taskPointer := &Task{
-			ID:          s.getLastTaskID() + 1,
-			Title:       title,
-			Description: description,
-			CreatedAt:   time.Now(),
-			ColumnID:    column.ID,
-		}
-		column.Tasks[taskPointer.ID] = struct{}{}
-		s.Tasks[taskPointer.ID] = taskPointer
-		return taskPointer, nil
+		taskID = s.getLastTaskID() + 1
 	} else {
-		taskPointer := &Task{
-			ID:          0,
-			Title:       title,
-			Description: description,
-			CreatedAt:   time.Now(),
-			ColumnID:    column.ID,
-		}
-		column.Tasks[taskPointer.ID] = struct{}{}
-		s.Tasks[taskPointer.ID] = taskPointer
-		return taskPointer, nil
+		taskID = 0
 	}
+	task := &Task{
+		ID:          taskID,
+		Title:       title,
+		Description: description,
+		CreatedAt:   time.Now(),
+		ColumnID:    column.ID,
+	}
+	column.Tasks[taskID] = struct{}{}
+	s.Tasks[taskID] = task
+	return task, nil
 }
 
 // метод получения задачи
@@ -172,17 +226,21 @@ func (s *Storage) GetTask(boardID, columnID, taskID int) (*Task, error) {
 		return nil, errors.New("такой доски не существует")
 	}
 
-	column, ok := board.Columns[columnID]
+	if _, ok = board.Columns[columnID]; !ok {
+		return nil, errors.New("такой колонки не существует в доске")
+	}
+
+	column, ok := s.Columns[columnID]
 	if !ok {
-		return nil, errors.New("такой колонки не существует")
+		return nil, errors.New("такой колонки не существует в глобальном хранилище")
 	}
 	
 	if _, ok := column.Tasks[taskID]; !ok {
-		return nil, errors.New("такой задачи не существует")
+		return nil, errors.New("такой задачи не существует в колонке")
 	}
 
 	if _, ok := s.Tasks[taskID]; !ok {
-		return nil, errors.New("такой задачи не существует")
+		return nil, errors.New("такой задачи не существует во глобальном хранилище")
 	}
 	
 	return s.Tasks[taskID], nil
@@ -203,15 +261,24 @@ func (s *Storage) MoveTask(boardID, taskID, fromColumnID, toColumnID int) error 
 		return errors.New("передана неверная колонка")
 	}
 
-	if _, ok := board.Columns[fromColumnID].Tasks[taskID]; !ok {
-		return errors.New("такой задачи не существует")
+	fromCol, ok := s.Columns[fromColumnID]
+	if !ok {
+		return errors.New("колонка-источник не найдена в глобальном хранилище")
+	}
+	toCol, ok := s.Columns[toColumnID]
+	if !ok {
+		return errors.New("колонка-назначение не найдена в глобальном хранилище")
+	}
+
+	if _, ok := fromCol.Tasks[taskID]; !ok {
+		return errors.New("такой задачи не существует в колонке")
 	}
 
 	if _, ok := s.Tasks[taskID]; !ok {
-		return errors.New("такой задачи не существует")
+		return errors.New("такой задачи не существует во глобальном хранилище")
 	}
-	delete(board.Columns[fromColumnID].Tasks, taskID)
-	board.Columns[toColumnID].Tasks[taskID] = struct{}{}
+	delete(fromCol.Tasks, taskID)
+	toCol.Tasks[taskID] = struct{}{}
 	s.Tasks[taskID].ColumnID = toColumnID
 	return nil
 }
@@ -223,22 +290,60 @@ func (s *Storage) RemoveTask(boardID, columnID, taskID int) error {
 		return errors.New("такой доски не существует")
 	}
 
-	column, ok := board.Columns[columnID]
+	_, ok = board.Columns[columnID]
 	if !ok {
-		return errors.New("такой колонки не существует")
+		return errors.New("такой колонки не существует в доске")
+	}
+
+	column, ok := s.Columns[columnID]
+	if !ok {
+		return errors.New("такой колонки не существует в глобальном хранилище")
 	}
 	
 	if _, ok := column.Tasks[taskID]; !ok {
-		return errors.New("такой задачи нет в этой колонке")
+		return errors.New("такой задачи не существует в колонке")
 	}
 
 	if _, ok := s.Tasks[taskID]; !ok {
-		return errors.New("такой задачи не существует")
+		return errors.New("такой задачи не существует во глобальном хранилище")
 	}
 	
 	delete(column.Tasks, taskID)
 	delete(s.Tasks, taskID)
 	return nil
+}
+
+//метод обновления имени задачи
+func (s *Storage) UpdateTaskTitle(boardID, columnID, taskID int, title string) (*Task, error) {
+	board, ok := s.Boards[boardID]
+	if !ok {
+		return nil, errors.New("такой доски не существует")
+	}
+
+	if _, ok = board.Columns[columnID]; !ok {
+		return nil, errors.New("такой колонки не существует в доске")
+	}
+
+	column, ok := s.Columns[columnID]
+	if !ok {
+		return nil, errors.New("такой колонки не существует в глобальном хранилище")
+	}
+	
+	if _, ok := column.Tasks[taskID]; !ok {
+		return nil, errors.New("такой задачи не существует в колонке")
+	}
+
+	task, ok := s.Tasks[taskID]
+	if !ok {
+		return nil, errors.New("такой задачи не существует во глобальном хранилище")
+	}
+	
+	if err := s.validateTaskTitle(column, title); err != nil {
+		return nil, err
+	}
+
+	task.Title = title
+	return task, nil
 }
 
 // валидация имени доски
@@ -257,10 +362,30 @@ func (s *Storage) validateBoardTitle(title string, excludeID int) error {
     return nil
 }
 
+// валидация имени колонки  
+func (s *Storage) validateColumnTitle(board *Board, title string, excludeID int) error {
+    for colID, _ := range board.Columns {
+    	column, ok := s.Columns[colID]
+     	if !ok {
+      		return errors.New("внутренняя ошибка: колонка из доски не найдена в глобальном хранилище")
+      	}
+        if excludeID >= 0 && colID == excludeID {
+            continue
+        }
+        if column.Title == title {
+            return errors.New("колонка с таким именем уже есть в доске")
+        }
+    }
+    if len(title) < 1 {
+        return errors.New("имя колонки не может быть пустым")
+    }
+    return nil
+}
+
 // валидация имени задачи
 func (s *Storage) validateTaskTitle(column *Column, title string) error {
-    for k, _ := range column.Tasks {
-        task, ok := s.Tasks[k]
+    for taskID, _ := range column.Tasks {
+        task, ok := s.Tasks[taskID]
         if !ok {
             return errors.New("внутренняя ошибка: задача из колонки не найдена в глобальном хранилище")
         }
@@ -278,6 +403,17 @@ func (s *Storage) validateTaskTitle(column *Column, title string) error {
 func (s *Storage) getLastBoardID() int {
 	id := 0
 	for k, _ := range s.Boards {
+		if k > id {
+			id = k
+		}
+	}
+	return id
+}
+
+// получение (наибольшего) id среди колонок  
+func (s *Storage) getLastColumnID() int {
+	id := 0
+	for k, _ := range s.Columns {
 		if k > id {
 			id = k
 		}

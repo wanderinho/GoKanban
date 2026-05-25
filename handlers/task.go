@@ -3,12 +3,72 @@ package handlers
 import (
 	"encoding/json"
 	"kanban/handlers/dto"
-	"kanban/src"
 	"net/http"
 	"strconv"
 )
 
-func UpdateTaskDescription(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateTaskTitle(w http.ResponseWriter, r *http.Request) {
+	boardIdStr := r.PathValue("boardID")
+	boardID, err := strconv.Atoi(boardIdStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+
+	columnIdStr := r.PathValue("columnID")
+	columnID, err := strconv.Atoi(columnIdStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+
+	taskIdStr := r.PathValue("taskID")
+	taskID, err := strconv.Atoi(taskIdStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+	
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
+	if !ok {
+		writeError(w, http.StatusNotFound, "такой доски не существует")
+		return
+	}
+
+	if _, ok := necessaryBoard.Columns[columnID]; !ok {
+		writeError(w, http.StatusNotFound, "такой колонки не существует в доске")
+		return
+	}
+
+ 	column, ok := h.httpStorage.Columns[columnID]
+    if !ok {
+        writeError(w, http.StatusNotFound, "такой колонки не существует в глобальном хранилище")
+        return
+    }
+
+    if _, ok := column.Tasks[taskID]; !ok {
+        writeError(w, http.StatusNotFound, "такой задачи не существует в колонке")
+        return
+    }
+
+    var req dto.UpdateTaskTitleDTO
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+       	writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
+        	return
+	}
+	
+	if task, err := h.httpStorage.UpdateTaskTitle(boardID, columnID, taskID, req.Title); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(task)
+	}
+}
+
+
+func (h *Handler) UpdateTaskDescription(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -30,23 +90,27 @@ func UpdateTaskDescription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	necessaryColumn, flag := necessaryBoard.Columns[columnID]
-	if !flag {
-		writeError(w, http.StatusNotFound, "такой колонки не существует")
+	if _, ok := necessaryBoard.Columns[columnID]; !ok {
+		writeError(w, http.StatusNotFound, "такой колонки не существует в доске")
 		return
 	}
 
-	necessaryTask, check := necessaryColumn.Tasks[taskID]
-	if !check {
-		writeError(w, http.StatusNotFound, "такой задачи не существует")
-		return
-	}
+ 	column, ok := h.httpStorage.Columns[columnID]
+    if !ok {
+        writeError(w, http.StatusNotFound, "такой колонки не существует в глобальном хранилище")
+        return
+    }
+
+    if _, ok := column.Tasks[taskID]; !ok {
+        writeError(w, http.StatusNotFound, "такой задачи не существует в колонке")
+        return
+    }
 
 	var req dto.UpdateTaskDescriptionDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -54,7 +118,7 @@ func UpdateTaskDescription(w http.ResponseWriter, r *http.Request) {
      	return
 	}
 	
-	task := necessaryTask.UpdateTaskDescription(req.Description)
+	task := h.httpStorage.Tasks[taskID].UpdateTaskDescription(req.Description)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(task)

@@ -8,6 +8,16 @@ import (
 	"strconv"
 )
 
+type Handler struct {
+	httpStorage *src.Storage
+}
+
+func NewHandler(storage *src.Storage) *Handler {
+	return &Handler{
+		httpStorage: storage,
+	}
+}
+
 func writeError(w http.ResponseWriter, status int, message string) {
 	var err dto.ErrorDTO
 	err.Message = message
@@ -16,7 +26,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	json.NewEncoder(w).Encode(err)
 }
 
-func CreateBoard(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateBoardDTO
 	var res dto.CreateBoardResponseDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -24,7 +34,7 @@ func CreateBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	board, err := src.NewBoard(req.Title)
+	board, err := h.httpStorage.NewBoard(req.Title)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -37,7 +47,7 @@ func CreateBoard(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func CreateColumn(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("boardID")
 
 	boardID, err := strconv.Atoi(path)
@@ -46,7 +56,7 @@ func CreateColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	_, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
@@ -59,7 +69,7 @@ func CreateColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	column, err := necessaryBoard.AddColumn(req.Title)
+	column, err := h.httpStorage.AddColumn(boardID, req.Title)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -73,7 +83,7 @@ func CreateColumn(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func GetBoard(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("boardID")
 
 	boardID, err := strconv.Atoi(path)
@@ -83,22 +93,22 @@ func GetBoard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var res dto.GetBoardResponseDTO
-	board, err := src.GetBoard(boardID)
+	board, err := h.httpStorage.GetBoard(boardID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	res.ID = board.ID
 	res.Title = board.Title
-	for _, v := range board.Columns {
-		res.Columns = append(res.Columns, *v)
+	for k, _ := range board.Columns {
+		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
 }
 
-func DeleteBoard(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("boardID")
 
 	boardID, err := strconv.Atoi(path)
@@ -107,13 +117,13 @@ func DeleteBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	_, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	if err := necessaryBoard.RemoveBoard(); err != nil {
+	if err := h.httpStorage.RemoveBoard(boardID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -121,7 +131,7 @@ func DeleteBoard(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("boardID")
 
 	boardID, err := strconv.Atoi(path)
@@ -130,7 +140,7 @@ func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	_, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
@@ -143,7 +153,7 @@ func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	board, err := necessaryBoard.UpdateBoardTitle(req.Title)
+	board, err := h.httpStorage.UpdateBoardTitle(boardID, req.Title)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -151,8 +161,8 @@ func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = board.ID
 	res.Title = board.Title
-	for _, v := range board.Columns {
-		res.Columns = append(res.Columns, *v)
+	for k, _ := range board.Columns {
+		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -160,7 +170,7 @@ func UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func GetColumn(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -175,14 +185,14 @@ func GetColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	_, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
 	var res dto.GetColumnResponseDTO
-	column, err := necessaryBoard.GetColumn(columnID)
+	column, err := h.httpStorage.GetColumn(boardID, columnID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -190,8 +200,8 @@ func GetColumn(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-	for _, v := range column.Tasks {
-		res.Tasks = append(res.Tasks, *v)
+	for k, _ := range column.Tasks {
+		res.Tasks = append(res.Tasks, *h.httpStorage.Tasks[k])
 	}
 	res.BoardID = column.BoardID
 	w.Header().Set("Content-Type", "application/json")
@@ -199,7 +209,7 @@ func GetColumn(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-func DeleteColumn(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -214,13 +224,13 @@ func DeleteColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	_, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	if err := necessaryBoard.RemoveColumn(columnID); err != nil {
+	if err := h.httpStorage.RemoveColumn(boardID, columnID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -228,7 +238,7 @@ func DeleteColumn(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func MoveTask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
 	path := r.PathValue("boardID")
 
 	boardID, err := strconv.Atoi(path)
@@ -237,7 +247,7 @@ func MoveTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
@@ -250,14 +260,14 @@ func MoveTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := necessaryBoard.MoveTask(req.TaskID, req.FromColumnID, req.ToColumnID); err != nil {
+	if err := h.httpStorage.MoveTask(boardID, req.TaskID, req.FromColumnID, req.ToColumnID); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	res.BoardID = necessaryBoard.ID
-	for _, v := range necessaryBoard.Columns {
-		res.Columns = append(res.Columns, *v)
+	for k, _ := range necessaryBoard.Columns {
+		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -3,12 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"kanban/handlers/dto"
-	"kanban/src"
 	"net/http"
 	"strconv"
 )
 
-func CreateTask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -23,14 +22,14 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	necessaryColumn, flag := necessaryBoard.Columns[columnID]
-	if !flag {
+	_, ok = necessaryBoard.Columns[columnID]
+	if !ok {
 		writeError(w, http.StatusNotFound, "такой колонки не существует")
 		return
 	}
@@ -41,7 +40,7 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := necessaryColumn.AddTask(req.Title, req.Description)
+	task, err := h.httpStorage.AddTask(boardID, columnID, req.Title, req.Description)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -52,7 +51,7 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
-func GetTask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -74,19 +73,19 @@ func GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	necessaryColumn, flag := necessaryBoard.Columns[columnID]
-	if !flag {
+	_, ok = necessaryBoard.Columns[columnID]
+	if !ok {
 		writeError(w, http.StatusNotFound, "такой колонки не существует")
 		return
 	}
 
-	task, err := necessaryColumn.GetTask(taskID)
+	task, err := h.httpStorage.GetTask(boardID, columnID, taskID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -97,7 +96,7 @@ func GetTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
-func DeleteTask(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -119,19 +118,19 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	necessaryColumn, flag := necessaryBoard.Columns[columnID]
-	if !flag {
+	_, ok = necessaryBoard.Columns[columnID]
+	if !ok {
 		writeError(w, http.StatusNotFound, "такой колонки не существует")
 		return
 	}
 
-	if err := necessaryColumn.RemoveTask(taskID); err != nil {
+	if err := h.httpStorage.RemoveTask(boardID, columnID, taskID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -139,7 +138,7 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 	boardIdStr := r.PathValue("boardID")
 	boardID, err := strconv.Atoi(boardIdStr)
 	if err != nil {
@@ -154,14 +153,14 @@ func UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := src.BoardMap[boardID]
+	necessaryBoard, ok := h.httpStorage.Boards[boardID]
 	if !ok {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
-	necessaryColumn, flag := necessaryBoard.Columns[columnID]
-	if !flag {
+	_, ok = necessaryBoard.Columns[columnID]
+	if !ok {
 		writeError(w, http.StatusNotFound, "такой колонки не существует")
 		return
 	}
@@ -173,7 +172,7 @@ func UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
      	return
 	}
 	
-	column, err := necessaryColumn.UpdateColumnTitle(req.Title)
+	column, err := h.httpStorage.UpdateColumnTitle(boardID, columnID, req.Title)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -181,8 +180,8 @@ func UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-	for _, v := range column.Tasks {
-		res.Tasks = append(res.Tasks, *v)
+	for k, _ := range column.Tasks {
+		res.Tasks = append(res.Tasks, *h.httpStorage.Tasks[k])
 	}
 	res.BoardID = column.BoardID
 	w.Header().Set("Content-Type", "application/json")
