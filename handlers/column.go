@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"kanban/handlers/dto"
+	"kanban/src"
 	"net/http"
 	"strconv"
 )
@@ -166,7 +167,7 @@ func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateColumnTitleDTO
-	var res dto.UpdateColumnTitleResponseDTO
+	var res dto.ColumnDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
     	writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
      	return
@@ -180,8 +181,12 @@ func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-	for k, _ := range column.Tasks {
-		res.Tasks = append(res.Tasks, *h.httpStorage.Tasks[k])
+	
+	taskSlice := make([]src.Task, 0, len(column.Tasks))
+	for taskID := range column.Tasks {
+		task := h.httpStorage.Tasks[taskID]
+
+		taskSlice = append(taskSlice, *task)	
 	}
 	res.BoardID = column.BoardID
 	w.Header().Set("Content-Type", "application/json")

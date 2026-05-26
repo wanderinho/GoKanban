@@ -28,7 +28,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 func (h *Handler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateBoardDTO
-	var res dto.CreateBoardResponseDTO
+	var res dto.BoardDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
 		return
@@ -63,7 +63,7 @@ func (h *Handler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.CreateColumnDTO
-	var res dto.CreateColumnResponseDTO
+	var res dto.ColumnDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
 		return
@@ -92,7 +92,7 @@ func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res dto.GetBoardResponseDTO
+	var res dto.BoardDTO
 	board, err := h.httpStorage.GetBoard(boardID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -100,9 +100,24 @@ func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
 	}
 	res.ID = board.ID
 	res.Title = board.Title
-	for k, _ := range board.Columns {
-		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
-	}
+	
+	for colID := range board.Columns {
+        col := h.httpStorage.Columns[colID] 
+
+        tasksSlice := make([]src.Task, 0, len(col.Tasks))
+        for taskID := range col.Tasks {
+            task := h.httpStorage.Tasks[taskID]
+            tasksSlice = append(tasksSlice, *task)
+        }
+
+        colDTO := dto.ColumnDTO{
+            ID:      col.ID,
+            Title:   col.Title,
+            Tasks:   tasksSlice,
+            BoardID: col.BoardID,
+        }
+        res.Columns = append(res.Columns, colDTO)
+    }
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
@@ -147,7 +162,7 @@ func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateBoardTitleDTO
-	var res dto.UpdateBoardTitleResponseDTO
+	var res dto.BoardDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
 		return
@@ -161,9 +176,24 @@ func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = board.ID
 	res.Title = board.Title
-	for k, _ := range board.Columns {
-		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
-	}
+	
+	for colID := range board.Columns {
+        col := h.httpStorage.Columns[colID] 
+
+        tasksSlice := make([]src.Task, 0, len(col.Tasks))
+        for taskID := range col.Tasks {
+            task := h.httpStorage.Tasks[taskID]
+            tasksSlice = append(tasksSlice, *task)
+        }
+
+        colDTO := dto.ColumnDTO{
+            ID:      col.ID,
+            Title:   col.Title,
+            Tasks:   tasksSlice,
+            BoardID: col.BoardID,
+        }
+        res.Columns = append(res.Columns, colDTO)
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -191,7 +221,7 @@ func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var res dto.GetColumnResponseDTO
+	var res dto.ColumnDTO
 	column, err := h.httpStorage.GetColumn(boardID, columnID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -200,9 +230,15 @@ func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-	for k, _ := range column.Tasks {
-		res.Tasks = append(res.Tasks, *h.httpStorage.Tasks[k])
+
+	taskSlice := make([]src.Task, 0, len(column.Tasks))
+	for taskID := range column.Tasks {
+		task := h.httpStorage.Tasks[taskID]
+
+		taskSlice = append(taskSlice, *task)	
 	}
+
+	res.Tasks = taskSlice
 	res.BoardID = column.BoardID
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -266,9 +302,23 @@ func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res.BoardID = necessaryBoard.ID
-	for k, _ := range necessaryBoard.Columns {
-		res.Columns = append(res.Columns, *h.httpStorage.Columns[k])
-	}
+	for colID := range necessaryBoard.Columns {
+        col := h.httpStorage.Columns[colID] 
+
+        tasksSlice := make([]src.Task, 0, len(col.Tasks))
+        for taskID := range col.Tasks {
+            task := h.httpStorage.Tasks[taskID]
+            tasksSlice = append(tasksSlice, *task)
+        }
+
+        colDTO := dto.ColumnDTO{
+            ID:      col.ID,
+            Title:   col.Title,
+            Tasks:   tasksSlice,
+            BoardID: col.BoardID,
+        }
+        res.Columns = append(res.Columns, colDTO)
+    }
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)

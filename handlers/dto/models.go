@@ -8,25 +8,21 @@ type CreateBoardDTO struct {
 	Title string `json:"title"`
 }
 
-type CreateBoardResponseDTO struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-}
-
 type CreateColumnDTO struct {
 	Title string `json:"title"`
 }
 
-type CreateColumnResponseDTO struct {
-	ID      int    `json:"id"`
-	Title   string `json:"title"`
-	BoardID int    `json:"board_id"`
+type BoardDTO struct {
+	ID int
+	Title string
+	Columns []ColumnDTO
 }
 
-type GetBoardResponseDTO struct {
-	ID      int          `json:"id"`
-	Title   string       `json:"title"`
-	Columns []src.Column `json:"columns"`
+type ColumnDTO struct {
+	ID int
+	Title string
+	Tasks []src.Task
+	BoardID int
 }
 
 type UpdateBoardTitleDTO struct {
@@ -37,19 +33,6 @@ type UpdateTaskTitleDTO struct {
 	Title string `json:"title"`
 }
 
-type UpdateBoardTitleResponseDTO struct {
-	ID      int          `json:"id"`
-	Title   string       `json:"title"`
-	Columns []src.Column `json:"columns"`
-}
-
-type GetColumnResponseDTO struct {
-	ID      int        `json:"id"`
-	Title   string     `json:"title"`
-	Tasks   []src.Task `json:"tasks"`
-	BoardID int        `json:"board_id"`
-}
-
 type MoveTaskDTO struct {
 	TaskID       int `json:"taskID"`
 	FromColumnID int `json:"from_column_id"`
@@ -58,7 +41,7 @@ type MoveTaskDTO struct {
 
 type MoveTaskResponseDTO struct {
 	BoardID int          `json:"board_id"`
-	Columns []src.Column `json:"columns"`
+	Columns []ColumnDTO `json:"columns"`
 }
 
 type CreateTaskDTO struct {
@@ -68,13 +51,6 @@ type CreateTaskDTO struct {
 
 type UpdateColumnTitleDTO struct {
 	Title string `json:"title"`
-}
-
-type UpdateColumnTitleResponseDTO struct {
-	ID      int        `json:"id"`
-	Title   string     `json:"title"`
-	Tasks   []src.Task `json:"tasks"`
-	BoardID int        `json:"board_id"`
 }
 
 type UpdateTaskDescriptionDTO struct {
