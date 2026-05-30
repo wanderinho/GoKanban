@@ -2,11 +2,13 @@ package src
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
 
 type Storage struct {
+	mtx sync.RWMutex
 	Boards map[int]*Board
 	Columns map[int]*Column
 	Tasks map[int]*Task
@@ -23,10 +25,12 @@ func NewStorage() *Storage {
 
 // метод создания новой дсоки
 func (s *Storage) NewBoard(title string) (*Board, error) {
+	defer s.mtx.Unlock()
+	
+	s.mtx.Lock()
 	if err := s.validateBoardTitle(title, -1); err != nil {
 		return nil, err
 	}
-
 
 	boardID := s.getLastBoardID() + 1
 	boardPointer := &Board{
@@ -40,6 +44,9 @@ func (s *Storage) NewBoard(title string) (*Board, error) {
 
 // метод получения доски
 func (s *Storage) GetBoard(boardID int) (*Board, error) {
+	defer s.mtx.RUnlock()
+	
+	s.mtx.RLock()
 	if _, ok := s.Boards[boardID]; !ok {
 		err := errors.New("такой доски не существует")
 		return nil, err
@@ -49,6 +56,9 @@ func (s *Storage) GetBoard(boardID int) (*Board, error) {
 
 // метод обновления имени доски
 func (s *Storage) UpdateBoardTitle(boardID int, title string) (*Board, error) {
+	defer s.mtx.Unlock()
+	
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -57,17 +67,20 @@ func (s *Storage) UpdateBoardTitle(boardID int, title string) (*Board, error) {
 	if err := s.validateBoardTitle(title, boardID); err != nil {
 		return nil, err
 	}
-
+	
 	board.Title = title
 	return board, nil
 }
 
 // метод удаления доски
 func (s *Storage) RemoveBoard(boardID int) error {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	if _, ok := s.Boards[boardID]; !ok {
 		return errors.New("такой доски не существует")
 	}
-
+	
 	board := s.Boards[boardID]
 	for colID := range board.Columns {
 		if col, ok := s.Columns[colID]; ok {
@@ -83,6 +96,9 @@ func (s *Storage) RemoveBoard(boardID int) error {
 }
 
 func (s *Storage) AddColumn(boardID int, title string) (*Column, error) {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -106,6 +122,9 @@ func (s *Storage) AddColumn(boardID int, title string) (*Column, error) {
 
 // метод получения колонки
 func (s *Storage) GetColumn(boardID, columnID int) (*Column, error) {
+	defer s.mtx.RUnlock()
+	
+	s.mtx.RLock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -121,6 +140,9 @@ func (s *Storage) GetColumn(boardID, columnID int) (*Column, error) {
 
 // метод удаления колонки
 func (s *Storage) RemoveColumn(boardID, columnID int) error {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
     board, ok := s.Boards[boardID]
     if !ok {
         return errors.New("такой доски не существует")
@@ -142,6 +164,9 @@ func (s *Storage) RemoveColumn(boardID, columnID int) error {
 
 // метод обновления имени колонки
 func (s *Storage) UpdateColumnTitle(boardID, columnID int, title string) (*Column, error) {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -162,6 +187,9 @@ func (s *Storage) UpdateColumnTitle(boardID, columnID int, title string) (*Colum
 
 // метод создания и добавления новой задачи в колонку
 func (s *Storage) AddTask(boardID, columnID int, title, description string) (*Task, error) {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -191,6 +219,9 @@ func (s *Storage) AddTask(boardID, columnID int, title, description string) (*Ta
 
 // метод получения задачи
 func (s *Storage) GetTask(boardID, columnID, taskID int) (*Task, error) {
+	defer s.mtx.RUnlock()
+
+	s.mtx.RLock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -211,6 +242,9 @@ func (s *Storage) GetTask(boardID, columnID, taskID int) (*Task, error) {
 
 // метод перемещения задачи из колонки в колонку
 func (s *Storage) MoveTask(boardID, taskID, fromColumnID, toColumnID int) error {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	if fromColumnID == toColumnID {
 		return nil
 	}
@@ -243,6 +277,9 @@ func (s *Storage) MoveTask(boardID, taskID, fromColumnID, toColumnID int) error 
 
 // метод удаления задачи
 func (s *Storage) RemoveTask(boardID, columnID, taskID int) error {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return errors.New("такой доски не существует")
@@ -264,6 +301,9 @@ func (s *Storage) RemoveTask(boardID, columnID, taskID int) error {
 
 //метод обновления имени задачи
 func (s *Storage) UpdateTaskTitle(boardID, columnID, taskID int, title string) (*Task, error) {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
 	board, ok := s.Boards[boardID]
 	if !ok {
 		return nil, errors.New("такой доски не существует")
@@ -285,4 +325,28 @@ func (s *Storage) UpdateTaskTitle(boardID, columnID, taskID int, title string) (
 
 	task.Title = title
 	return task, nil
+}
+
+// метод обновления описания задачи
+func (s *Storage) UpdateTaskDescription(boardID, columnID, taskID int, description string) (*Task, error) {
+	defer s.mtx.Unlock()
+
+	s.mtx.Lock()
+    board, ok := s.Boards[boardID]
+    if !ok {
+        return nil, errors.New("такой доски не существует")
+    }
+
+    column, err := s.validateColumnExist(board, columnID)
+    if err != nil {
+        return nil, err
+    }
+
+    task, err := s.validateTaskExist(column, taskID)
+    if err != nil {
+        return nil, err
+    }
+
+    task.Description = description
+    return task, nil
 }

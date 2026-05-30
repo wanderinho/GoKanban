@@ -68,13 +68,13 @@ func (s *Storage) validateColumnTitle(board *Board, title string, excludeID int)
 }
 
 // валидация имени задачи
-func (s *Storage) validateTaskTitle(column *Column, title string, excludeTaskID int) error {
+func (s *Storage) validateTaskTitle(column *Column, title string, excludeID int) error {
     for taskID := range column.Tasks {
         task, ok := s.Tasks[taskID]
         if !ok {
             return errors.New("внутренняя ошибка: задача из колонки не найдена в глобальном хранилище")
         }
-        if excludeTaskID >= 0 && taskID == excludeTaskID {
+        if excludeID >= 0 && taskID == excludeID {
             continue
         }
         if task.Title == title {

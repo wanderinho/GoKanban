@@ -18,18 +18,6 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
-
-	necessaryBoard, ok := h.httpStorage.Boards[boardID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
-	_, ok = necessaryBoard.Columns[columnID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой колонки не существует")
-		return
-	}
 	
 	var req dto.CreateTaskDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -65,18 +53,6 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := h.httpStorage.Boards[boardID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
-	_, ok = necessaryBoard.Columns[columnID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой колонки не существует")
-		return
-	}
-
 	task, err := h.httpStorage.GetTask(boardID, columnID, taskID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
@@ -105,18 +81,6 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := h.httpStorage.Boards[boardID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
-	_, ok = necessaryBoard.Columns[columnID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой колонки не существует")
-		return
-	}
-
 	if err := h.httpStorage.RemoveTask(boardID, columnID, taskID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -135,18 +99,6 @@ func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
-		return
-	}
-
-	necessaryBoard, ok := h.httpStorage.Boards[boardID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
-	_, ok = necessaryBoard.Columns[columnID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой колонки не существует")
 		return
 	}
 

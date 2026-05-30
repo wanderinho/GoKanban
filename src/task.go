@@ -12,9 +12,3 @@ type Task struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ColumnID    int       `json:"column_id"`
 }
-
-// метод обновления описания задачи
-func (t *Task) UpdateTaskDescription(description string) *Task {
-	t.Description = description
-	return t
-}

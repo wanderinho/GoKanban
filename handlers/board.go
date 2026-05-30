@@ -43,11 +43,6 @@ func (h *Handler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.boardExists(boardID); err != nil {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
 	var req dto.CreateColumnDTO
 	var res dto.ColumnDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -95,11 +90,6 @@ func (h *Handler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.boardExists(boardID); err != nil {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
 	if err := h.httpStorage.RemoveBoard(boardID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -112,11 +102,6 @@ func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
-		return
-	}
-
-	if err := h.boardExists(boardID); err != nil {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
 
@@ -153,11 +138,6 @@ func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.boardExists(boardID); err != nil {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
 	var res dto.ColumnDTO
 	column, err := h.httpStorage.GetColumn(boardID, columnID)
 	if err != nil {
@@ -187,11 +167,6 @@ func (h *Handler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.boardExists(boardID); err != nil{
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
 	if err := h.httpStorage.RemoveColumn(boardID, columnID); err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -207,12 +182,6 @@ func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	necessaryBoard, ok := h.httpStorage.Boards[boardID]
-	if !ok {
-		writeError(w, http.StatusNotFound, "такой доски не существует")
-		return
-	}
-
 	var req dto.MoveTaskDTO
 	var res dto.MoveTaskResponseDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -225,9 +194,13 @@ func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	necessaryBoard, err := h.httpStorage.GetBoard(boardID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+	}
+
 	res.BoardID = necessaryBoard.ID
 	res.Columns = columnsMapToDTO(h, necessaryBoard)
 	
 	writeJSON(w, http.StatusOK, res)
-
 }
