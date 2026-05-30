@@ -4,26 +4,22 @@ import (
 	"encoding/json"
 	"kanban/handlers/dto"
 	"net/http"
-	"strconv"
 )
 
 func (h *Handler) UpdateTaskTitle(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	taskIdStr := r.PathValue("taskID")
-	taskID, err := strconv.Atoi(taskIdStr)
+	taskID, err := parseIntPath(r, "taskID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -54,37 +50,32 @@ func (h *Handler) UpdateTaskTitle(w http.ResponseWriter, r *http.Request) {
     var req dto.UpdateTaskTitleDTO
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
        	writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
-        	return
+        return
 	}
 	
 	if task, err := h.httpStorage.UpdateTaskTitle(boardID, columnID, taskID, req.Title); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	} else {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(task)
+		writeJSON(w, http.StatusOK, task)
 	}
 }
 
 
 func (h *Handler) UpdateTaskDescription(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	taskIdStr := r.PathValue("taskID")
-	taskID, err := strconv.Atoi(taskIdStr)
+	taskID, err := parseIntPath(r, "taskID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -119,7 +110,5 @@ func (h *Handler) UpdateTaskDescription(w http.ResponseWriter, r *http.Request) 
 	}
 	
 	task := h.httpStorage.Tasks[taskID].UpdateTaskDescription(req.Description)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(task)
+	writeJSON(w, http.StatusOK, task)
 }

@@ -3,21 +3,17 @@ package handlers
 import (
 	"encoding/json"
 	"kanban/handlers/dto"
-	"kanban/src"
 	"net/http"
-	"strconv"
 )
 
 func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -47,28 +43,23 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(task)
+	writeJSON(w, http.StatusCreated, task)
 }
 
 func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	taskIdStr := r.PathValue("taskID")
-	taskID, err := strconv.Atoi(taskIdStr)
+	taskID, err := parseIntPath(r, "taskID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -92,28 +83,23 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(task)
+	writeJSON(w, http.StatusOK, task)
 }
 
 func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	taskIdStr := r.PathValue("taskID")
-	taskID, err := strconv.Atoi(taskIdStr)
+	taskID, err := parseIntPath(r, "taskID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -140,15 +126,13 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -181,15 +165,8 @@ func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-	
-	taskSlice := make([]src.Task, 0, len(column.Tasks))
-	for taskID := range column.Tasks {
-		task := h.httpStorage.Tasks[taskID]
-
-		taskSlice = append(taskSlice, *task)	
-	}
+	res.Tasks = tasksMapToSlice(h, column.Tasks)
 	res.BoardID = column.BoardID
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	
+	writeJSON(w, http.StatusOK, res)
 }

@@ -5,7 +5,6 @@ import (
 	"kanban/handlers/dto"
 	"kanban/src"
 	"net/http"
-	"strconv"
 )
 
 type Handler struct {
@@ -16,14 +15,6 @@ func NewHandler(storage *src.Storage) *Handler {
 	return &Handler{
 		httpStorage: storage,
 	}
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	var err dto.ErrorDTO
-	err.Message = message
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(err)
 }
 
 func (h *Handler) CreateBoard(w http.ResponseWriter, r *http.Request) {
@@ -42,22 +33,17 @@ func (h *Handler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = board.ID
 	res.Title = board.Title
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(res)
+	writeJSON(w, http.StatusCreated, res)
 }
 
 func (h *Handler) CreateColumn(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("boardID")
-
-	boardID, err := strconv.Atoi(path)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	_, ok := h.httpStorage.Boards[boardID]
-	if !ok {
+	if err := h.boardExists(boardID); err != nil {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
@@ -78,15 +64,11 @@ func (h *Handler) CreateColumn(w http.ResponseWriter, r *http.Request) {
 	res.ID = column.ID
 	res.Title = column.Title
 	res.BoardID = column.BoardID
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(res)
+	writeJSON(w, http.StatusCreated, res)
 }
 
 func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("boardID")
-
-	boardID, err := strconv.Atoi(path)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -98,42 +80,22 @@ func (h *Handler) GetBoard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	
 	res.ID = board.ID
 	res.Title = board.Title
-	
-	for colID := range board.Columns {
-        col := h.httpStorage.Columns[colID] 
+	res.Columns = columnsMapToDTO(h, board)
+	writeJSON(w, http.StatusOK, res)
 
-        tasksSlice := make([]src.Task, 0, len(col.Tasks))
-        for taskID := range col.Tasks {
-            task := h.httpStorage.Tasks[taskID]
-            tasksSlice = append(tasksSlice, *task)
-        }
-
-        colDTO := dto.ColumnDTO{
-            ID:      col.ID,
-            Title:   col.Title,
-            Tasks:   tasksSlice,
-            BoardID: col.BoardID,
-        }
-        res.Columns = append(res.Columns, colDTO)
-    }
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
 }
 
 func (h *Handler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("boardID")
-
-	boardID, err := strconv.Atoi(path)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	_, ok := h.httpStorage.Boards[boardID]
-	if !ok {
+	if err := h.boardExists(boardID); err != nil {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
@@ -147,16 +109,13 @@ func (h *Handler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("boardID")
-
-	boardID, err := strconv.Atoi(path)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	_, ok := h.httpStorage.Boards[boardID]
-	if !ok {
+	if err := h.boardExists(boardID); err != nil {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
@@ -176,47 +135,25 @@ func (h *Handler) UpdateBoardTitle(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = board.ID
 	res.Title = board.Title
-	
-	for colID := range board.Columns {
-        col := h.httpStorage.Columns[colID] 
+	res.Columns = columnsMapToDTO(h, board)
 
-        tasksSlice := make([]src.Task, 0, len(col.Tasks))
-        for taskID := range col.Tasks {
-            task := h.httpStorage.Tasks[taskID]
-            tasksSlice = append(tasksSlice, *task)
-        }
-
-        colDTO := dto.ColumnDTO{
-            ID:      col.ID,
-            Title:   col.Title,
-            Tasks:   tasksSlice,
-            BoardID: col.BoardID,
-        }
-        res.Columns = append(res.Columns, colDTO)
-    }
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	writeJSON(w, http.StatusOK, res)
 }
 
 func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	_, ok := h.httpStorage.Boards[boardID]
-	if !ok {
+	if err := h.boardExists(boardID); err != nil {
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
@@ -230,38 +167,27 @@ func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 
 	res.ID = column.ID
 	res.Title = column.Title
-
-	taskSlice := make([]src.Task, 0, len(column.Tasks))
-	for taskID := range column.Tasks {
-		task := h.httpStorage.Tasks[taskID]
-
-		taskSlice = append(taskSlice, *task)	
-	}
-
-	res.Tasks = taskSlice
+	res.Tasks = tasksMapToSlice(h, column.Tasks)
 	res.BoardID = column.BoardID
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	
+	writeJSON(w, http.StatusOK, res)
+
 }
 
 func (h *Handler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
-	boardIdStr := r.PathValue("boardID")
-	boardID, err := strconv.Atoi(boardIdStr)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	columnIdStr := r.PathValue("columnID")
-	columnID, err := strconv.Atoi(columnIdStr)
+	columnID, err := parseIntPath(r, "columnID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
 	}
 
-	_, ok := h.httpStorage.Boards[boardID]
-	if !ok {
+	if err := h.boardExists(boardID); err != nil{
 		writeError(w, http.StatusNotFound, "такой доски не существует")
 		return
 	}
@@ -275,9 +201,7 @@ func (h *Handler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("boardID")
-
-	boardID, err := strconv.Atoi(path)
+	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
 		return
@@ -302,24 +226,8 @@ func (h *Handler) MoveTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res.BoardID = necessaryBoard.ID
-	for colID := range necessaryBoard.Columns {
-        col := h.httpStorage.Columns[colID] 
+	res.Columns = columnsMapToDTO(h, necessaryBoard)
+	
+	writeJSON(w, http.StatusOK, res)
 
-        tasksSlice := make([]src.Task, 0, len(col.Tasks))
-        for taskID := range col.Tasks {
-            task := h.httpStorage.Tasks[taskID]
-            tasksSlice = append(tasksSlice, *task)
-        }
-
-        colDTO := dto.ColumnDTO{
-            ID:      col.ID,
-            Title:   col.Title,
-            Tasks:   tasksSlice,
-            BoardID: col.BoardID,
-        }
-        res.Columns = append(res.Columns, colDTO)
-    }
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
 }
