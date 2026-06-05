@@ -25,10 +25,10 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.httpStorage.AddTask(boardID, columnID, req.Title, req.Description)
+	task, err := h.httpStorage.AddTask(r.Context(), boardID, columnID, req.Title, req.Description)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
+    	writeError(w, errorStatus(err), err.Error())
+     	return
 	}
 
 	writeJSON(w, http.StatusCreated, task)
@@ -53,10 +53,10 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.httpStorage.GetTask(boardID, columnID, taskID)
+	task, err := h.httpStorage.GetTask(r.Context(), boardID, columnID, taskID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
-		return
+    	writeError(w, errorStatus(err), err.Error())
+     	return
 	}
 
 	writeJSON(w, http.StatusOK, task)
@@ -81,8 +81,8 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.httpStorage.RemoveTask(boardID, columnID, taskID); err != nil {
-		writeError(w, http.StatusNotFound, err.Error())
+	if err := h.httpStorage.RemoveTask(r.Context(), boardID, columnID, taskID); err != nil {
+		writeError(w, errorStatus(err), err.Error())
 		return
 	}
 
@@ -103,22 +103,23 @@ func (h *Handler) UpdateColumnTitle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateColumnTitleDTO
-	var res dto.ColumnDTO
+	var res *dto.ColumnDTO
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
     	writeError(w, http.StatusBadRequest, "не удалось прочитать тело запроса")
      	return
 	}
 	
-	column, err := h.httpStorage.UpdateColumnTitle(boardID, columnID, req.Title)
+	column, err := h.httpStorage.UpdateColumnTitle(r.Context(), boardID, columnID, req.Title)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
+    	writeError(w, errorStatus(err), err.Error())
+     	return
 	}
 
-	res.ID = column.ID
-	res.Title = column.Title
-	res.Tasks = tasksMapToSlice(h, column.Tasks)
-	res.BoardID = column.BoardID
+	res, err = columnToDTO(r.Context(), h, column)
+	if err != nil {
+    	writeError(w, errorStatus(err), err.Error())
+     	return
+	}
 	
 	writeJSON(w, http.StatusOK, res)
 }

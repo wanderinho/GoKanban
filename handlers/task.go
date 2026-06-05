@@ -31,8 +31,8 @@ func (h *Handler) UpdateTaskTitle(w http.ResponseWriter, r *http.Request) {
         return
 	}
 	
-	if task, err := h.httpStorage.UpdateTaskTitle(boardID, columnID, taskID, req.Title); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	if task, err := h.httpStorage.UpdateTaskTitle(r.Context(), boardID, columnID, taskID, req.Title); err != nil {
+		writeError(w, errorStatus(err), err.Error())
 		return
 	} else {
 		writeJSON(w, http.StatusOK, task)
@@ -65,11 +65,11 @@ func (h *Handler) UpdateTaskDescription(w http.ResponseWriter, r *http.Request) 
         return
     }
 
-    task, err := h.httpStorage.UpdateTaskDescription(boardID, columnID, taskID, req.Description)
+    task, err := h.httpStorage.UpdateTaskDescription(r.Context(), boardID, columnID, taskID, req.Description)
     if err != nil {
-        writeError(w, http.StatusBadRequest, err.Error())
-        return
-    }
+       	writeError(w, errorStatus(err), err.Error())
+        	return
+	}
 
     writeJSON(w, http.StatusOK, task)
 }

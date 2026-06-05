@@ -1,59 +1,85 @@
 package handlers
 
 import (
-	"net/http"
+	"encoding/json"
 	"kanban/handlers/dto"
 	"kanban/src"
-	"encoding/json"
+	"net/http"
 	"strconv"
+	"context"
 	"errors"
 )
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	errDTO := dto.ErrorDTO{Message: message}
-    writeJSON(w, status, errDTO)
+	writeJSON(w, status, errDTO)
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(status)
-    json.NewEncoder(w).Encode(data)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
 }
 
 func parseIntPath(r *http.Request, path string) (int, error) {
-    val := r.PathValue(path)
-    return strconv.Atoi(val)
+	val := r.PathValue(path)
+	return strconv.Atoi(val)
 }
 
-func (h *Handler) boardExists(boardID int) error {
-    if _, ok := h.httpStorage.Boards[boardID]; !ok {
-        return errors.New("такой доски не существует")
-    }
-    return nil
+func columnToDTO(ctx context.Context, handler *Handler, column *src.Column) (*dto.ColumnDTO, error) {
+	tasks, err := handler.httpStorage.GetTasksByColumn(ctx, column.ID)
+	if err != nil {
+		return nil, err
+	}
+	tasksSlice := make([]src.Task, 0, len(tasks))
+	for _, t := range tasks {
+		tasksSlice = append(tasksSlice, *t)
+	}
+	return &dto.ColumnDTO{
+		ID:      column.ID,
+		Title:   column.Title,
+		Tasks:   tasksSlice,
+		BoardID: column.BoardID,
+	}, nil
 }
 
-func tasksMapToSlice(handler *Handler, tasksMap map[int]struct{}) []src.Task {
-    tasksSlice := make([]src.Task, 0, len(tasksMap))
-    for taskID := range tasksMap {
-        if task, ok := handler.httpStorage.Tasks[taskID]; ok {
-            tasksSlice = append(tasksSlice, *task)
-        }
-    }
-    return tasksSlice
+func columnsToDTO(ctx context.Context, handler *Handler, columns []*src.Column) ([]dto.ColumnDTO, error) {
+	columnsDTO := make([]dto.ColumnDTO, 0, len(columns))
+	for _, col := range columns {
+		colDTO, err := columnToDTO(ctx, handler, col)
+		if err != nil {
+			return nil, err
+		}
+		columnsDTO = append(columnsDTO, *colDTO)
+	}
+	return columnsDTO, nil
 }
 
-func columnsMapToDTO(handler *Handler, board *src.Board) []dto.ColumnDTO {
-    columnsDTO := make([]dto.ColumnDTO, 0, len(board.Columns))
-    for colID := range board.Columns {
-        col := handler.httpStorage.Columns[colID]
-        tasksSlice := tasksMapToSlice(handler, col.Tasks)
-        colDTO := dto.ColumnDTO{
-            ID:      col.ID,
-            Title:   col.Title,
-            Tasks:   tasksSlice,
-            BoardID: col.BoardID,
-        }
-        columnsDTO = append(columnsDTO, colDTO)
-    }
-    return columnsDTO
+func boardToDTO(ctx context.Context, handler *Handler, board *src.Board) (*dto.BoardDTO, error) {
+	columns, err := handler.httpStorage.GetColumnsByBoard(ctx, board.ID)
+	if err != nil {
+		return nil, err
+	}
+	columnsDTO, err := columnsToDTO(ctx, handler, columns)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.BoardDTO{
+		ID:      board.ID,
+		Title:   board.Title,
+		Columns: columnsDTO,
+	}, nil
+}
+
+func errorStatus(err error) int {
+	switch {
+	case errors.Is(err, src.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, src.ErrAlreadyExists):
+		return http.StatusConflict
+	case errors.Is(err, src.ErrInvalidInput):
+		return http.StatusBadRequest
+	default:
+		return http.StatusInternalServerError
+	}
 }
