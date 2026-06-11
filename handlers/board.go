@@ -148,6 +148,31 @@ func (h *Handler) GetColumn(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+func (h *Handler) GetColumns(w http.ResponseWriter, r *http.Request) {
+	boardID, err := parseIntPath(r, "boardID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+
+	columns, err := h.httpStorage.GetColumnsByBoard(r.Context(), boardID)
+	if err != nil {
+		writeError(w, errorStatus(err), err.Error())
+		return
+	}
+
+	result, err := columnsToDTO(r.Context(), h, columns)
+	if err != nil {
+		writeError(w, errorStatus(err), err.Error())
+		return
+	}
+
+	res := dto.GetColumnsByBoardDTO{
+		Columns: result,
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
 func (h *Handler) DeleteColumn(w http.ResponseWriter, r *http.Request) {
 	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {

@@ -62,6 +62,34 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, task)
 }
 
+func (h *Handler) GetTasks(w http.ResponseWriter, r *http.Request) {
+	boardID, err := parseIntPath(r, "boardID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+
+	columnID, err := parseIntPath(r, "columnID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "параметр пути должен быть числом")
+		return
+	}
+
+	tasks, err := h.httpStorage.GetTasksByColumn(r.Context(), columnID)
+	if err != nil {
+		writeError(w, errorStatus(err), err.Error())
+		return
+	}
+	
+	res := dto.GetTasksByColumnDTO{
+		BoardID: boardID,
+		ColumnID: columnID,
+		Tasks: tasks,
+	}
+
+	writeJSON(w, http.StatusOK, res)
+}
+
 func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	boardID, err := parseIntPath(r, "boardID")
 	if err != nil {
